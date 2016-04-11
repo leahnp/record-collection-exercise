@@ -1,6 +1,8 @@
 require 'sqlite3'
+require 'csv'
 
 class ReleaseDatabase
+  FILE = 'source/20160406-record-collection.csv'
   attr_reader :db
 
   def initialize(dbname = "releases")
@@ -28,7 +30,27 @@ class ReleaseDatabase
       @db.execute("DROP TABLE IF EXISTS albums;")
       @db.execute(query)
   end
+
+  def load!
+    insert_statement = <<-INSERSTATEMENT
+      INSERT INTO albums (
+        label_code, artist, title, label, format, released, date_added
+      ) VALUES (
+        :label_code, :artist, :title, :label, :format, :released, :date_added
+      );
+    INSERSTATEMENT
+
+    # prepare the insert statement
+    prepared_statement = @db.prepare(insert_statement)
+
+    # now that we have a prepared statement, we can iterate the CSV and use its values to populate our database
+    CSV.foreach(FILE, headers: true) do |row|
+      prepared_statement.execute(row.to_h)
+    end
+
+  end
 end
 
 release_db = ReleaseDatabase.new
 release_db.reset_schema!
+release_db.load!
